@@ -46,46 +46,47 @@ void SpringComponent::paint(juce::Graphics &g)
     auto tk = epFile.getTrack(0);
     auto it = tk->getNextIndexAtTime(priorTime);
 
-    float cx = getWidth() / 2;
-    float cy = getHeight()/2;
+    auto cx = getWidth() / 2;
+    auto cy = getHeight()/2;
 
     while (it < tk->getNumEvents() & tk->getEventTime(it) <= cp)
     {
         auto m = tk->getEventPointer(it);
         if (m->message.isNoteOn())
         {
-            dot d;
+            dot d{};
             d.x = rand() % 100 - 50 + cx;
             d.y = rand() % 100 - 50 + cy;
             d.a = 1;
 
             dots.push_back(d);
-            std::cout << "Event " << tk->getEventTime(it) << std::endl;
         }
         it++;
     }
 
-    for (auto &d : dots)
+    if( !dots.empty())
     {
-        if (d.a > 0.01)
+        auto pd = dots[0];
+        for (auto &d : dots)
         {
-            uint8_t c = (uint8_t)(d.a * 255);
-            auto r = 30.0 / ( 0.2 + d.a );
-            g.setColour(juce::Colour(c, c, 0));
-            float px = d.x;
-            float py = d.y;
+            if (d.a > 0.01)
+            {
+                auto c = (uint8_t)(d.a * 255);
+                auto r = 30.0 / (0.2 + d.a);
+                g.setColour(juce::Colour(c, c, 0));
+                auto px = d.x;
+                auto py = d.y;
 
-            float dc = sqrt((px-cx)*(px-cx) + (py-cy)*(py-cy));
+                px += (1.0 - d.a) * (px - cx);
+                py += (1.0 - d.a) * (py - cy);
 
-            px += ( 1.0 - d.a ) * (px-cx);
-
-            py += ( 1.0 - d.a ) * (py-cy);
-
-            g.fillEllipse(px, py, r, r);
+                g.drawLine(px, py, pd.x, pd.y);
+                g.fillEllipse(px - 0.5 * r, py - 0.5 * r, r, r);
+            }
+            d.a *= 0.99;
+            pd = d;
         }
-        d.a *= 0.99;
     }
-
     priorTime = cp;
 }
 
