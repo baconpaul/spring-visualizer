@@ -22,10 +22,13 @@ public:
     juce::AudioFormatManager formatManager;
     std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
     juce::AudioTransportSource transportSource;
+    double priorTime;
 
     void prepareToPlay(int, double) override;
     void releaseResources() override;
     void getNextAudioBlock(const juce::AudioSourceChannelInfo &) override;
+
+    juce::MidiFile padFile, epFile;
 
 private:
     void timerCallback() override;

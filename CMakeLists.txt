@@ -29,6 +29,7 @@ target_link_libraries(spring-viz
         juce::juce_audio_formats
         juce::juce_audio_devices
         juce::juce_audio_utils
+        juce::juce_audio_basics
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags

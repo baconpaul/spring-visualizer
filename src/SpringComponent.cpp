@@ -7,18 +7,24 @@ SpringComponent::SpringComponent() {
 
     formatManager.registerBasicFormats();
 
-    auto file = juce::File(
-            "/Users/paul/Desktop/Ambient Video Project/Audio.wav");                                        // [9]
+    auto dir = std::string("/Users/paul/Desktop/Ambient Video Project/");
+    auto file = juce::File(dir + "Audio.wav");                                        // [9]
     auto *reader = formatManager.createReaderFor(file);                    // [10]
 
     if (reader != nullptr) {
         auto newSource = std::make_unique<juce::AudioFormatReaderSource>(reader,true);
         transportSource.setSource(newSource.get(), 0, nullptr, reader->sampleRate);
         readerSource = std::move(newSource);
-        transportSource.setPosition(20.0);
+        transportSource.setPosition(26.0);
+        priorTime = 26.0;
         transportSource.start();
     }
     startTimerHz(30);
+
+    auto epf = juce::File(dir + "EP.mid");
+    auto fis = std::make_unique<juce::FileInputStream>(epf);
+    epFile.readFrom(*fis);
+    epFile.convertTimestampTicksToSeconds();
 }
 
 SpringComponent::~SpringComponent() {
@@ -33,8 +39,19 @@ void SpringComponent::paint (juce::Graphics& g)
 
     g.setFont (juce::Font (16.0f));
     g.setColour (juce::Colours::white);
-    auto p = std::to_string(transportSource.getCurrentPosition());
+    auto cp = transportSource.getCurrentPosition();
+    auto p = std::to_string(cp);
     g.drawText (p, getLocalBounds(), juce::Justification::centred, true);
+
+    auto tk = epFile.getTrack(0);
+    auto it = tk->getNextIndexAtTime(priorTime);
+
+    if (tk->getEventTime(it) <= transportSource.getCurrentPosition())
+    {
+        std::cout << "Event " << tk->getEventTime(it) << std::endl;
+    }
+
+    priorTime = transportSource.getCurrentPosition();
 }
 
 void SpringComponent::resized()
