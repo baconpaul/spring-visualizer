@@ -1,6 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <vector>
 
 //==============================================================================
 /*
@@ -29,6 +30,11 @@ public:
     void getNextAudioBlock(const juce::AudioSourceChannelInfo &) override;
 
     juce::MidiFile padFile, epFile;
+
+    struct dot {
+        double x, y, a;
+    };
+    std::vector<dot> dots;
 
 private:
     void timerCallback() override;
