@@ -49,7 +49,7 @@ void SpringComponent::paint(juce::Graphics &g)
     float cx = getWidth() / 2;
     float cy = getHeight()/2;
 
-    if (tk->getEventTime(it) <= transportSource.getCurrentPosition())
+    while (it < tk->getNumEvents() & tk->getEventTime(it) <= cp)
     {
         auto m = tk->getEventPointer(it);
         if (m->message.isNoteOn())
@@ -62,6 +62,7 @@ void SpringComponent::paint(juce::Graphics &g)
             dots.push_back(d);
             std::cout << "Event " << tk->getEventTime(it) << std::endl;
         }
+        it++;
     }
 
     for (auto &d : dots)
@@ -85,7 +86,7 @@ void SpringComponent::paint(juce::Graphics &g)
         d.a *= 0.99;
     }
 
-    priorTime = transportSource.getCurrentPosition();
+    priorTime = cp;
 }
 
 void SpringComponent::resized()
