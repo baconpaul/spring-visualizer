@@ -46,14 +46,17 @@ void SpringComponent::paint(juce::Graphics &g)
     auto tk = epFile.getTrack(0);
     auto it = tk->getNextIndexAtTime(priorTime);
 
+    float cx = getWidth() / 2;
+    float cy = getHeight()/2;
+
     if (tk->getEventTime(it) <= transportSource.getCurrentPosition())
     {
         auto m = tk->getEventPointer(it);
         if (m->message.isNoteOn())
         {
             dot d;
-            d.x = rand() % 500 + 50;
-            d.y = rand() % 300 + 50;
+            d.x = rand() % 100 - 50 + cx;
+            d.y = rand() % 100 - 50 + cy;
             d.a = 1;
 
             dots.push_back(d);
@@ -66,8 +69,18 @@ void SpringComponent::paint(juce::Graphics &g)
         if (d.a > 0.01)
         {
             uint8_t c = (uint8_t)(d.a * 255);
+            auto r = 30.0 / ( 0.2 + d.a );
             g.setColour(juce::Colour(c, c, 0));
-            g.fillEllipse(d.x, d.y, 10, 10);
+            float px = d.x;
+            float py = d.y;
+
+            float dc = sqrt((px-cx)*(px-cx) + (py-cy)*(py-cy));
+
+            px += ( 1.0 - d.a ) * (px-cx);
+
+            py += ( 1.0 - d.a ) * (py-cy);
+
+            g.fillEllipse(px, py, r, r);
         }
         d.a *= 0.99;
     }
