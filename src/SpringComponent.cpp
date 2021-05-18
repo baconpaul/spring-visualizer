@@ -36,6 +36,7 @@ SpringComponent::SpringComponent() : forwardFFT(fftOrder)
     memset(fftData, 0, sizeof(float) * fftSize);
 
     addKeyListener(this);
+    grabKeyboardFocus();
 }
 
 SpringComponent::~SpringComponent() { shutdownAudio(); }
@@ -44,30 +45,29 @@ SpringComponent::~SpringComponent() { shutdownAudio(); }
 void SpringComponent::paint(juce::Graphics &g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
+    g.fillAll(juce::Colour(0, 0, 0));
 
     auto cp = transportSource.getCurrentPosition();
-    if( ! transportSource.isPlaying() || cp < 10 )
+    if (!transportSource.isPlaying() || cp < 10)
     {
-        g.fillAll(juce::Colour(0, 0, 0));
         g.setFont(juce::Font(50.0f));
         int c = 255;
-        if( cp > 5 )
-            c = 255 - ( cp - 5 ) * 255.0 / 5.0;
-        if( c < 0 ) c = 0;
-        g.setColour(juce::Colour(c,c,c));
+        if (cp > 5)
+            c = 255 - (cp - 5) * 255.0 / 5.0;
+        if (c < 0)
+            c = 0;
+        g.setColour(juce::Colour(c, c, c));
         g.drawText("Title Card", getLocalBounds(), juce::Justification::centred, true);
         g.setFont(juce::Font(16.0f));
-        if( transportSource.isPlaying())
+        if (transportSource.isPlaying())
             g.drawText(std::to_string(cp), getLocalBounds(), juce::Justification::bottomLeft, true);
         else
             g.drawText("Any key to start", getLocalBounds(), juce::Justification::bottomLeft, true);
 
         priorTime = cp;
-        if( cp < 4 )
+        if (cp < 4)
             return;
     }
-
-    g.fillAll(juce::Colour(0, 0, 0));
 
     g.setFont(juce::Font(16.0f));
     g.setColour(juce::Colours::white);
@@ -217,14 +217,14 @@ void SpringComponent::timerCallback()
 bool SpringComponent::keyPressed(const KeyPress &key, Component *originatingComponent)
 {
     std::cout << "KeyPressed " << key.getKeyCode() << std::endl;
-    if( ! transportSource.isPlaying() )
+    if (!transportSource.isPlaying())
         transportSource.start();
 
     return true;
 }
-void SpringComponent::mouseUp(const MouseEvent &event) {
-    if( !transportSource.isPlaying())
+
+void SpringComponent::mouseUp(const MouseEvent &event)
+{
+    if (!transportSource.isPlaying())
         transportSource.start();
-    else
-        transportSource.stop();
 }
