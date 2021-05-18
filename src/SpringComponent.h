@@ -33,12 +33,44 @@ public:
 
     struct dot {
         double x, y, a;
+        bool square;
     };
     std::vector<dot> dots;
 
     void timerCallback() override;
 
-private:
+    void pushNextSampleIntoFifo (float sample) noexcept
+    {
+        // if the fifo contains enough data, set a flag to say
+        // that the next line should now be rendered..
+        if (fifoIndex == fftSize)
+        {
+            if (! nextFFTBlockReady)
+            {
+                zeromem (fftData, sizeof (fftData));
+                memcpy (fftData, fifo, sizeof (fifo));
+                nextFFTBlockReady = true;
+            }
+
+            fifoIndex = 0;
+        }
+
+        fifo[fifoIndex++] = sample;
+    }
+    enum
+    {
+        fftOrder = 10,
+        fftSize  = 1 << fftOrder
+    };
+    juce::dsp::FFT forwardFFT;
+
+    float fifo [fftSize];
+    float fftData [2 * fftSize];
+    int fifoIndex = 0;
+    bool nextFFTBlockReady = false;
+
+    float fftOut[fftSize];
+  private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SpringComponent)
 };

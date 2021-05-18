@@ -30,7 +30,10 @@ target_link_libraries(spring-viz
         juce::juce_audio_devices
         juce::juce_audio_utils
         juce::juce_audio_basics
+        juce::juce_dsp
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
-        juce::juce_recommended_warning_flags)
+        )
+
+target_compile_options(spring-viz PUBLIC -Wno-implicit-float-conversion)
