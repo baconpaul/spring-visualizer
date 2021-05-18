@@ -9,7 +9,7 @@ SpringComponent::SpringComponent() : forwardFFT(fftOrder)
 
     formatManager.registerBasicFormats();
 
-    auto dir = std::string("/Users/paul/Desktop/Ambient Video Project/");
+    auto dir = std::string("/Users/paul/dev/music/spring-visualizer/resources/data/");
     auto file = juce::File(dir + "Audio.wav");          // [9]
     auto *reader = formatManager.createReaderFor(file); // [10]
 
@@ -18,9 +18,8 @@ SpringComponent::SpringComponent() : forwardFFT(fftOrder)
         auto newSource = std::make_unique<juce::AudioFormatReaderSource>(reader, true);
         transportSource.setSource(newSource.get(), 0, nullptr, reader->sampleRate);
         readerSource = std::move(newSource);
-        transportSource.setPosition(32.0);
-        priorTime = 32.0;
-        transportSource.start();
+        transportSource.setPosition(0.0);
+        priorTime = 0.0;
     }
     startTimerHz(30);
 
@@ -35,6 +34,8 @@ SpringComponent::SpringComponent() : forwardFFT(fftOrder)
     padFile.convertTimestampTicksToSeconds();
 
     memset(fftData, 0, sizeof(float) * fftSize);
+
+    addKeyListener(this);
 }
 
 SpringComponent::~SpringComponent() { shutdownAudio(); }
@@ -43,11 +44,33 @@ SpringComponent::~SpringComponent() { shutdownAudio(); }
 void SpringComponent::paint(juce::Graphics &g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
+
+    auto cp = transportSource.getCurrentPosition();
+    if( ! transportSource.isPlaying() || cp < 10 )
+    {
+        g.fillAll(juce::Colour(0, 0, 0));
+        g.setFont(juce::Font(50.0f));
+        int c = 255;
+        if( cp > 5 )
+            c = 255 - ( cp - 5 ) * 255.0 / 5.0;
+        if( c < 0 ) c = 0;
+        g.setColour(juce::Colour(c,c,c));
+        g.drawText("Title Card", getLocalBounds(), juce::Justification::centred, true);
+        g.setFont(juce::Font(16.0f));
+        if( transportSource.isPlaying())
+            g.drawText(std::to_string(cp), getLocalBounds(), juce::Justification::bottomLeft, true);
+        else
+            g.drawText("Any key to start", getLocalBounds(), juce::Justification::bottomLeft, true);
+
+        priorTime = cp;
+        if( cp < 4 )
+            return;
+    }
+
     g.fillAll(juce::Colour(0, 0, 0));
 
     g.setFont(juce::Font(16.0f));
     g.setColour(juce::Colours::white);
-    auto cp = transportSource.getCurrentPosition();
     auto p = std::to_string(cp);
     g.drawText(p, getLocalBounds(), juce::Justification::bottomLeft, true);
 
@@ -190,4 +213,18 @@ void SpringComponent::timerCallback()
         nextFFTBlockReady = false;
     }
     repaint();
+}
+bool SpringComponent::keyPressed(const KeyPress &key, Component *originatingComponent)
+{
+    std::cout << "KeyPressed " << key.getKeyCode() << std::endl;
+    if( ! transportSource.isPlaying() )
+        transportSource.start();
+
+    return true;
+}
+void SpringComponent::mouseUp(const MouseEvent &event) {
+    if( !transportSource.isPlaying())
+        transportSource.start();
+    else
+        transportSource.stop();
 }

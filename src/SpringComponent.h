@@ -8,16 +8,15 @@
     This component lives inside our window, and this is where you should put all
     your controls and content.
 */
-class SpringComponent   : public juce::AudioAppComponent,
-        juce::Timer
+class SpringComponent : public juce::AudioAppComponent, public juce::Timer, public juce::KeyListener
 {
-public:
+  public:
     //==============================================================================
     SpringComponent();
     ~SpringComponent() override;
 
     //==============================================================================
-    void paint (juce::Graphics&) override;
+    void paint(juce::Graphics &) override;
     void resized() override;
 
     juce::AudioFormatManager formatManager;
@@ -29,9 +28,13 @@ public:
     void releaseResources() override;
     void getNextAudioBlock(const juce::AudioSourceChannelInfo &) override;
 
-    juce::MidiFile padFile, epFile;
+    bool keyPressed(const KeyPress &key, Component *originatingComponent) override;
+    void mouseUp(const MouseEvent &event) override;
 
-    struct dot {
+  public:
+    juce::MidiFile padFile, epFile;
+    struct dot
+    {
         double x, y, a;
         bool square;
     };
@@ -39,16 +42,16 @@ public:
 
     void timerCallback() override;
 
-    void pushNextSampleIntoFifo (float sample) noexcept
+    void pushNextSampleIntoFifo(float sample) noexcept
     {
         // if the fifo contains enough data, set a flag to say
         // that the next line should now be rendered..
         if (fifoIndex == fftSize)
         {
-            if (! nextFFTBlockReady)
+            if (!nextFFTBlockReady)
             {
-                zeromem (fftData, sizeof (fftData));
-                memcpy (fftData, fifo, sizeof (fifo));
+                zeromem(fftData, sizeof(fftData));
+                memcpy(fftData, fifo, sizeof(fifo));
                 nextFFTBlockReady = true;
             }
 
@@ -60,17 +63,17 @@ public:
     enum
     {
         fftOrder = 10,
-        fftSize  = 1 << fftOrder
+        fftSize = 1 << fftOrder
     };
     juce::dsp::FFT forwardFFT;
 
-    float fifo [fftSize];
-    float fftData [2 * fftSize];
+    float fifo[fftSize];
+    float fftData[2 * fftSize];
     int fifoIndex = 0;
     bool nextFFTBlockReady = false;
 
     float fftOut[fftSize];
-  private:
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SpringComponent)
+  private:
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpringComponent)
 };
