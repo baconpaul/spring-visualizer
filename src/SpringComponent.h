@@ -67,6 +67,9 @@ class SpringComponent : public juce::AudioAppComponent, public juce::Timer, publ
     };
     juce::dsp::FFT forwardFFT;
 
+    static constexpr int meshSize = 48;
+    std::array<std::array<float, meshSize>, meshSize> mesh;
+
     float fifo[fftSize];
     float fftData[2 * fftSize];
     int fifoIndex = 0;

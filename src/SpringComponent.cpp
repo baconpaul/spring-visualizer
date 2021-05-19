@@ -18,7 +18,7 @@ SpringComponent::SpringComponent() : forwardFFT(fftOrder)
         auto newSource = std::make_unique<juce::AudioFormatReaderSource>(reader, true);
         transportSource.setSource(newSource.get(), 0, nullptr, reader->sampleRate);
         readerSource = std::move(newSource);
-        transportSource.setPosition(0.0);
+        transportSource.setPosition(10.0);
         priorTime = transportSource.getCurrentPosition();
     }
     startTimerHz(30);
@@ -38,6 +38,10 @@ SpringComponent::SpringComponent() : forwardFFT(fftOrder)
 
     addKeyListener(this);
     grabKeyboardFocus();
+
+    for (int i = 0; i < meshSize; i++)
+        for (int j = 0; j < meshSize; j++)
+            mesh[i][j] = 0;
 }
 
 SpringComponent::~SpringComponent() { shutdownAudio(); }
@@ -57,19 +61,21 @@ void SpringComponent::paint(juce::Graphics &g)
     int step = 10;
     for (auto gl : fftOut)
     {
-        if( pos > cx ) break;
+        if (pos > cx)
+            break;
         float npos = pos * 1.f / cx;
 
-        g.setColour(juce::Colour(20 + (1 + npos ) * 40 * gl, 20 + (3 - npos ) * 20 * gl, 40 + 100 * gl));
-        //g.setColour(juce::Colour(1.f * pos / cx * 255, 0, 0 ));
+        g.setColour(
+            juce::Colour(20 + (1 + npos) * 40 * gl, 20 + (3 - npos) * 20 * gl, 40 + 100 * gl));
+        // g.setColour(juce::Colour(1.f * pos / cx * 255, 0, 0 ));
         float r = cx - pos;
-        g.fillRect(r-step, 0.f, 1.f*step,  1.f*getHeight());
+        g.fillRect(r - step, 0.f, 1.f * step, 1.f * getHeight());
         r = cx + pos;
-        g.fillRect(r, 0.f, 1.f*step,  1.f*getHeight());
-        pos+= step;
+        g.fillRect(r, 0.f, 1.f * step, 1.f * getHeight());
+        pos += step;
     }
 
-    if ( cp < 10)
+    if (cp < 10)
     {
         g.setFont(juce::Font(50.0f));
         uint8_t c = 255;
@@ -90,14 +96,33 @@ void SpringComponent::paint(juce::Graphics &g)
             return;
     }
 
-
-
     g.setFont(juce::Font(16.0f));
     g.setColour(juce::Colours::white);
     auto p = std::to_string(cp) + " / " + std::to_string(dots.size());
     g.drawText(p, getLocalBounds(), juce::Justification::bottomLeft, true);
 
+    float ms2 = meshSize / 2.0;
+    for (int mx = 1; mx < meshSize - 1; mx++)
+    {
+        for (int my = 1; my < meshSize - 1; my++)
+        {
+            float sz = 3 + 3 * mesh[mx][my];
+            float sz2 = sz / 2;
+            float px = (mx - ms2) / ms2;
+            float py = 1.f * (meshSize - my) / meshSize;
 
+            const float sf = 1.2;
+            float xScale = (sf + py) / (sf + 1.0);
+            float lx = xScale * px * cx + cx;
+            float ly = py * cy + cy;
+            py -= 0.5 * mesh[mx][my];
+            float ly2 = py * cy + cy;
+            // std::cout << px << " " << py << " " << lx << " " << ly << std::endl;
+            g.setColour(juce::Colours::red);
+            g.drawLine(lx, ly, lx, ly2);
+            g.fillEllipse(lx - sz2, ly - sz2, sz, sz);
+        }
+    }
 
     if (!dots.empty())
     {
@@ -128,8 +153,7 @@ void SpringComponent::paint(juce::Graphics &g)
             pd = d;
         }
     }
-
- }
+}
 
 void SpringComponent::resized()
 {
@@ -177,7 +201,7 @@ void SpringComponent::timerCallback()
         auto mk = std::max(maxLevel.getEnd(), 0.1f);
         for (auto y = 0; y < fftSize; ++y)
         {
-            auto level = fftData[y] / mk ;
+            auto level = fftData[y] / mk;
             // fftOut[y] = level;
 
             fftOut[y] = level * 0.3 + fftOut[y] * 0.7;
@@ -187,7 +211,7 @@ void SpringComponent::timerCallback()
 
     auto cp = transportSource.getCurrentPosition();
 
-    if( priorTime > 1 )
+    if (priorTime > 1)
     {
         auto cx = getWidth() / 2;
         auto cy = getHeight() / 2;
@@ -212,26 +236,38 @@ void SpringComponent::timerCallback()
             it++;
         }
 
-        tk = padFile.getTrack(0);
-        it = tk->getNextIndexAtTime(priorTime);
-        while (it < tk->getNumEvents() & tk->getEventTime(it) <= cp)
-        {
-            auto m = tk->getEventPointer(it);
-            if (m->message.isNoteOn())
-            {
-                dot d{};
-                d.x = rand() % (2 * wx) - wx + cx;
-                d.y = rand() % (2 * wy) - wy + cy;
-                d.a = 1;
-                d.square = true;
-
-                dots.push_back(d);
-            }
-            it++;
-        }
-        dots.erase(std::remove_if(dots.begin(), dots.end(), [](const dot &d) { return d.a < 1.f / 255.f; }), dots.end());
+        dots.erase(std::remove_if(dots.begin(), dots.end(),
+                                  [](const dot &d) { return d.a < 1.f / 255.f; }),
+                   dots.end());
     }
 
+    // this is the pad file
+
+    for (int i = 1; i < meshSize - 1; ++i)
+        for (int j = 1; j < meshSize - 1; ++j)
+            mesh[i][j] =
+                0.5 * mesh[i][j] + 0.5 *
+                                       (mesh[i + 1][j] + mesh[i - 1][j] + mesh[i][j - 1] +
+                                        mesh[i][j + 1] + mesh[i - 1][j - 1] + mesh[i - 1][j + 1] +
+                                        mesh[i + 1][j - 1] + mesh[i + 1][j + 1]) /
+                                       8.0;
+    auto tk = padFile.getTrack(0);
+    auto it = tk->getNextIndexAtTime(priorTime);
+    while (it < tk->getNumEvents() & tk->getEventTime(it) <= cp)
+    {
+        auto m = tk->getEventPointer(it);
+        if (m->message.isNoteOn())
+        {
+            int margin = 3;
+            auto mx = rand() % (meshSize - margin * 4) + margin;
+            auto my = rand() % (meshSize - margin * 4) + margin;
+
+            for (int i = -margin + 1; i < margin; ++i)
+                for (int j = -margin + 1; j < margin; ++j)
+                    mesh[mx + i][my + j] = 1;
+        }
+        it++;
+    }
 
     priorTime = cp;
 
