@@ -72,7 +72,6 @@ class GuiAppApplication : public juce::JUCEApplication
 
             addKeyListener(dynamic_cast<juce::KeyListener *>(getContentComponent()));
             setVisible(true);
-            toFront(true);
         }
 
         void closeButtonPressed() override

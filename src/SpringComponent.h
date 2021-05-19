@@ -62,7 +62,7 @@ class SpringComponent : public juce::AudioAppComponent, public juce::Timer, publ
     }
     enum
     {
-        fftOrder = 10,
+        fftOrder = 11,
         fftSize = 1 << fftOrder
     };
     juce::dsp::FFT forwardFFT;

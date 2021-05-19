@@ -19,7 +19,7 @@ SpringComponent::SpringComponent() : forwardFFT(fftOrder)
         transportSource.setSource(newSource.get(), 0, nullptr, reader->sampleRate);
         readerSource = std::move(newSource);
         transportSource.setPosition(0.0);
-        priorTime = 0.0;
+        priorTime = transportSource.getCurrentPosition();
     }
     startTimerHz(30);
 
@@ -34,6 +34,7 @@ SpringComponent::SpringComponent() : forwardFFT(fftOrder)
     padFile.convertTimestampTicksToSeconds();
 
     memset(fftData, 0, sizeof(float) * fftSize);
+    memset(fftOut, 0, sizeof(float) * fftSize);
 
     addKeyListener(this);
     grabKeyboardFocus();
@@ -46,17 +47,37 @@ void SpringComponent::paint(juce::Graphics &g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
     g.fillAll(juce::Colour(0, 0, 0));
+    auto cp = priorTime;
 
-    auto cp = transportSource.getCurrentPosition();
-    if (!transportSource.isPlaying() || cp < 10)
+    g.setColour(juce::Colour(20, 30, 20));
+    auto cx = getWidth() / 2;
+    auto cy = getHeight() / 2;
+
+    int pos = 0;
+    int step = 10;
+    for (auto gl : fftOut)
+    {
+        if( pos > cx ) break;
+        float npos = pos * 1.f / cx;
+
+        g.setColour(juce::Colour(20 + (1 + npos ) * 40 * gl, 20 + (3 - npos ) * 20 * gl, 40 + 100 * gl));
+        //g.setColour(juce::Colour(1.f * pos / cx * 255, 0, 0 ));
+        float r = cx - pos;
+        g.fillRect(r-step, 0.f, 1.f*step,  1.f*getHeight());
+        r = cx + pos;
+        g.fillRect(r, 0.f, 1.f*step,  1.f*getHeight());
+        pos+= step;
+    }
+
+    if ( cp < 10)
     {
         g.setFont(juce::Font(50.0f));
-        int c = 255;
+        uint8_t c = 255;
         if (cp > 5)
             c = 255 - (cp - 5) * 255.0 / 5.0;
         if (c < 0)
             c = 0;
-        g.setColour(juce::Colour(c, c, c));
+        g.setColour(juce::Colour((uint8_t)255, (uint8_t)255, (uint8_t)255, (uint8_t)c));
         g.drawText("Title Card", getLocalBounds(), juce::Justification::centred, true);
         g.setFont(juce::Font(16.0f));
         if (transportSource.isPlaying())
@@ -69,51 +90,14 @@ void SpringComponent::paint(juce::Graphics &g)
             return;
     }
 
+
+
     g.setFont(juce::Font(16.0f));
     g.setColour(juce::Colours::white);
-    auto p = std::to_string(cp);
+    auto p = std::to_string(cp) + " / " + std::to_string(dots.size());
     g.drawText(p, getLocalBounds(), juce::Justification::bottomLeft, true);
 
-    auto cx = getWidth() / 2;
-    auto cy = getHeight() / 2;
-    auto wx = 200;
-    auto wy = 100;
 
-    auto tk = epFile.getTrack(0);
-    auto it = tk->getNextIndexAtTime(priorTime);
-    while (it < tk->getNumEvents() & tk->getEventTime(it) <= cp)
-    {
-        auto m = tk->getEventPointer(it);
-        if (m->message.isNoteOn())
-        {
-            dot d{};
-            d.x = rand() % (2 * wx) - wx + cx;
-            d.y = rand() % (2 * wy) - wy + cy;
-            d.a = 1;
-            d.square = false;
-
-            dots.push_back(d);
-        }
-        it++;
-    }
-
-    tk = padFile.getTrack(0);
-    it = tk->getNextIndexAtTime(priorTime);
-    while (it < tk->getNumEvents() & tk->getEventTime(it) <= cp)
-    {
-        auto m = tk->getEventPointer(it);
-        if (m->message.isNoteOn())
-        {
-            dot d{};
-            d.x = rand() % (2 * wx) - wx + cx;
-            d.y = rand() % (2 * wy) - wy + cy;
-            d.a = 1;
-            d.square = true;
-
-            dots.push_back(d);
-        }
-        it++;
-    }
 
     if (!dots.empty())
     {
@@ -130,13 +114,13 @@ void SpringComponent::paint(juce::Graphics &g)
 
             if (!d.square)
             {
-                g.setColour(juce::Colour(c, c, 0));
+                g.setColour(juce::Colour(c, c, 0, c));
                 g.drawLine(px, py, pd.x, pd.y);
                 g.fillEllipse(px - 0.5 * r, py - 0.5 * r, r, r);
             }
             else
             {
-                g.setColour(juce::Colour(0, c, c));
+                g.setColour(juce::Colour(0, c, c, c));
                 g.drawLine(px, py, pd.x, pd.y);
                 g.fillRect((float)(px - 0.5 * r), (float)(py - 0.5 * r), (float)r, (float)r);
             }
@@ -145,15 +129,7 @@ void SpringComponent::paint(juce::Graphics &g)
         }
     }
 
-    g.setColour(juce::Colour(0, 255, 255));
-    int pos = 0;
-    for (auto gl : fftOut)
-    {
-        g.drawLine(pos, 0, pos, gl * getHeight());
-        pos++;
-    }
-    priorTime = cp;
-}
+ }
 
 void SpringComponent::resized()
 {
@@ -195,28 +171,74 @@ void SpringComponent::timerCallback()
     if (nextFFTBlockReady)
     {
         forwardFFT.performFrequencyOnlyForwardTransform(fftData);
-
         // find the range of values produced, so we can scale our rendering to
         // show up the detail clearly
         auto maxLevel = FloatVectorOperations::findMinAndMax(fftData, fftSize / 2);
-
-        for (auto y = 1; y < fftSize; ++y)
+        auto mk = std::max(maxLevel.getEnd(), 0.1f);
+        for (auto y = 0; y < fftSize; ++y)
         {
-            auto skewedProportionY = 1.0f - std::exp(std::log((float)y / (float)fftSize) * 0.2f);
-            auto fftDataIndex = jlimit(0, fftSize / 2, (int)(skewedProportionY * (int)fftSize / 2));
-            auto level =
-                jmap(fftData[fftDataIndex], 0.0f, jmax(maxLevel.getEnd(), 1e-5f), 0.0f, 1.0f);
-            // spectrogramImage.setPixelAt (rightHandEdge, y, Colour::fromHSV (level, 1.0f,
-            // level, 1.0f));
-            fftOut[y - 1] = level * 0.05 + fftOut[y - 1] * 0.95;
+            auto level = fftData[y] / mk ;
+            // fftOut[y] = level;
+
+            fftOut[y] = level * 0.3 + fftOut[y] * 0.7;
         }
         nextFFTBlockReady = false;
     }
+
+    auto cp = transportSource.getCurrentPosition();
+
+    if( priorTime > 1 )
+    {
+        auto cx = getWidth() / 2;
+        auto cy = getHeight() / 2;
+        auto wx = 200;
+        auto wy = 100;
+
+        auto tk = epFile.getTrack(0);
+        auto it = tk->getNextIndexAtTime(priorTime);
+        while (it < tk->getNumEvents() & tk->getEventTime(it) <= cp)
+        {
+            auto m = tk->getEventPointer(it);
+            if (m->message.isNoteOn())
+            {
+                dot d{};
+                d.x = rand() % (2 * wx) - wx + cx;
+                d.y = rand() % (2 * wy) - wy + cy;
+                d.a = 1;
+                d.square = false;
+
+                dots.push_back(d);
+            }
+            it++;
+        }
+
+        tk = padFile.getTrack(0);
+        it = tk->getNextIndexAtTime(priorTime);
+        while (it < tk->getNumEvents() & tk->getEventTime(it) <= cp)
+        {
+            auto m = tk->getEventPointer(it);
+            if (m->message.isNoteOn())
+            {
+                dot d{};
+                d.x = rand() % (2 * wx) - wx + cx;
+                d.y = rand() % (2 * wy) - wy + cy;
+                d.a = 1;
+                d.square = true;
+
+                dots.push_back(d);
+            }
+            it++;
+        }
+        dots.erase(std::remove_if(dots.begin(), dots.end(), [](const dot &d) { return d.a < 1.f / 255.f; }), dots.end());
+    }
+
+
+    priorTime = cp;
+
     repaint();
 }
 bool SpringComponent::keyPressed(const KeyPress &key, Component *originatingComponent)
 {
-    std::cout << "KeyPressed " << key.getKeyCode() << std::endl;
     if (!transportSource.isPlaying())
         transportSource.start();
 
