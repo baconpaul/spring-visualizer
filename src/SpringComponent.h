@@ -17,6 +17,9 @@ class SpringComponent : public juce::AudioAppComponent, public juce::Timer, publ
 
     //==============================================================================
     void paint(juce::Graphics &) override;
+    void paintForReal(juce::Graphics &);
+    juce::Image offscreen;
+
     void resized() override;
 
     juce::AudioFormatManager formatManager;
@@ -68,7 +71,7 @@ class SpringComponent : public juce::AudioAppComponent, public juce::Timer, publ
     juce::dsp::FFT forwardFFT;
 
     static constexpr int meshSize = 48;
-    std::array<std::array<float, meshSize>, meshSize> mesh;
+    std::array<std::array<float, meshSize>, meshSize> mesh, meshPrior, lx, ly, ly2;
 
     float fifo[fftSize];
     float fftData[2 * fftSize];

@@ -18,7 +18,7 @@ SpringComponent::SpringComponent() : forwardFFT(fftOrder)
         auto newSource = std::make_unique<juce::AudioFormatReaderSource>(reader, true);
         transportSource.setSource(newSource.get(), 0, nullptr, reader->sampleRate);
         readerSource = std::move(newSource);
-        transportSource.setPosition(10.0);
+        transportSource.setPosition(0.0);
         priorTime = transportSource.getCurrentPosition();
     }
     startTimerHz(30);
@@ -41,16 +41,25 @@ SpringComponent::SpringComponent() : forwardFFT(fftOrder)
 
     for (int i = 0; i < meshSize; i++)
         for (int j = 0; j < meshSize; j++)
+        {
             mesh[i][j] = 0;
+            meshPrior[i][j] = 0;
+            lx[i][j] = 0;
+            ly[i][j] = 0;
+            ly2[i][j] = 0;
+        }
+    srand(1234); // be predictable
 }
 
 SpringComponent::~SpringComponent() { shutdownAudio(); }
 
-//==============================================================================
 void SpringComponent::paint(juce::Graphics &g)
 {
-    // (Our component is opaque, so we must completely fill the background with a solid colour)
-    g.fillAll(juce::Colour(0, 0, 0));
+    g.drawImageAt(offscreen, 0, 0);
+}
+//==============================================================================
+void SpringComponent::paintForReal(juce::Graphics &g)
+{
     auto cp = priorTime;
 
     g.setColour(juce::Colour(20, 30, 20));
@@ -92,7 +101,7 @@ void SpringComponent::paint(juce::Graphics &g)
             g.drawText("Any key to start", getLocalBounds(), juce::Justification::bottomLeft, true);
 
         priorTime = cp;
-        if (cp < 4)
+        if (cp < 3)
             return;
     }
 
@@ -101,26 +110,17 @@ void SpringComponent::paint(juce::Graphics &g)
     auto p = std::to_string(cp) + " / " + std::to_string(dots.size());
     g.drawText(p, getLocalBounds(), juce::Justification::bottomLeft, true);
 
-    float ms2 = meshSize / 2.0;
-    for (int mx = 1; mx < meshSize - 1; mx++)
+    float sz = 4, sz2 = 2;
+    uint8_t alpha = ( cp > 5 ? 255 : cp < 3 ? 0 : (int)( ( cp - 3 ) * 0.5 * 255 ));
+    for (int j = 1; j < meshSize - 2; ++j)
     {
-        for (int my = 1; my < meshSize - 1; my++)
-        {
-            float sz = 3 + 3 * mesh[mx][my];
-            float sz2 = sz / 2;
-            float px = (mx - ms2) / ms2;
-            float py = 1.f * (meshSize - my) / meshSize;
+        g.setColour(juce::Colour( (uint8_t)(220 - j * 2), (uint8_t)(220 - j * 2),
+                                  (uint8_t)(250 - j * 2), alpha ));
+        float thick = 3.0 - j * 2.0 / meshSize;
 
-            const float sf = 1.2;
-            float xScale = (sf + py) / (sf + 1.0);
-            float lx = xScale * px * cx + cx;
-            float ly = py * cy + cy;
-            py -= 0.5 * mesh[mx][my];
-            float ly2 = py * cy + cy;
-            // std::cout << px << " " << py << " " << lx << " " << ly << std::endl;
-            g.setColour(juce::Colours::red);
-            g.drawLine(lx, ly, lx, ly2);
-            g.fillEllipse(lx - sz2, ly - sz2, sz, sz);
+        for (int i = 1; i < meshSize - 1; ++i)
+        {
+            g.drawLine(lx[i][j], ly2[i][j], lx[i][j + 1], ly2[i][j + 1], thick);
         }
     }
 
@@ -160,6 +160,7 @@ void SpringComponent::resized()
     // This is called when the SpringComponent is resized.
     // If you add any child components, this is where you should
     // update their positions.
+    offscreen = juce::Image(juce::Image::ARGB, getWidth(), getHeight(), false);
     toFront(true);
 }
 
@@ -242,15 +243,51 @@ void SpringComponent::timerCallback()
     }
 
     // this is the pad file
-
+    auto cx = getWidth() / 2;
+    auto cy = getHeight() / 2;
+    float ms2 = meshSize / 2.0;
+    std::array<std::array<float, meshSize>, meshSize> meshNext;
     for (int i = 1; i < meshSize - 1; ++i)
+    {
         for (int j = 1; j < meshSize - 1; ++j)
-            mesh[i][j] =
+        {
+            const double dtodx2 = 0.1;
+
+            meshNext[i][j] = 2 * mesh[i][j] - meshPrior[i][j] + dtodx2 * (mesh[i+1][j] + mesh[i-1][j] + mesh[i][j-1] + mesh[i][j+1] - 4.0 * mesh[i][j]);
+
+        }
+    }
+    static constexpr float diffuse = 0.05;
+    for (int i = 1; i < meshSize - 1; ++i)
+    {
+        for (int j = 1; j < meshSize - 1; ++j)
+        {
+            auto meshAvg =
                 0.5 * mesh[i][j] + 0.5 *
                                        (mesh[i + 1][j] + mesh[i - 1][j] + mesh[i][j - 1] +
                                         mesh[i][j + 1] + mesh[i - 1][j - 1] + mesh[i - 1][j + 1] +
                                         mesh[i + 1][j - 1] + mesh[i + 1][j + 1]) /
                                        8.0;
+            meshPrior[i][j] = mesh[i][j];
+            mesh[i][j] = (1-diffuse) * meshNext[i][j] + diffuse * meshAvg;
+
+            float sz = 3 + 3 * mesh[i][j];
+            float sz2 = sz / 2;
+            float px = (i - ms2) / ms2;
+            float py = 1.f * (meshSize - j) / meshSize;
+
+            const float sf = 1.2;
+            float xScale = (sf + py) / (sf + 1.0);
+            float llx = xScale * px * cx + cx;
+            float lly = py * cy + cy;
+            py -= 0.5 * mesh[i][j];
+            float lly2 = py * cy + cy;
+            lx[i][j] = llx;
+            ly[i][j] = lly;
+            ly2[i][j] = lly2;
+        }
+    }
+
     auto tk = padFile.getTrack(0);
     auto it = tk->getNextIndexAtTime(priorTime);
     while (it < tk->getNumEvents() & tk->getEventTime(it) <= cp)
@@ -262,14 +299,23 @@ void SpringComponent::timerCallback()
             auto mx = rand() % (meshSize - margin * 4) + margin;
             auto my = rand() % (meshSize - margin * 4) + margin;
 
+            float di = rand() / RAND_MAX * 0.4 - 0.2;
+            float dj = rand() / RAND_MAX * 0.4 - 0.2;
             for (int i = -margin + 1; i < margin; ++i)
+            {
                 for (int j = -margin + 1; j < margin; ++j)
+                {
                     mesh[mx + i][my + j] = 1;
+                    meshPrior[mx + i][my + j] += 1 + di * i + dj * j;
+                }
+            }
         }
         it++;
     }
 
     priorTime = cp;
+    juce::Graphics g(offscreen);
+    paintForReal(g);
 
     repaint();
 }
