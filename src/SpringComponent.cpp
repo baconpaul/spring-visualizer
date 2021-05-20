@@ -1,8 +1,37 @@
 #include "SpringComponent.h"
+#include <chrono>
+
+struct TimeThisBlock
+{
+    static int depth;
+    TimeThisBlock(std::string tag) : tag(tag)
+    {
+        myd = depth++;
+        start = std::chrono::high_resolution_clock::now();
+        //for( int i=0; i<myd; ++i ) std::cout << "--";
+        //std::cout << "/ " << tag <<std::endl;
+    }
+    ~TimeThisBlock() { reset(tag); }
+    void reset(const std::string &s) {
+        depth--;
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = end - start;
+        auto durationFloat = std::chrono::duration_cast<std::chrono::microseconds>(duration).count() / 1e6;
+        //for( int i=0; i<myd; ++i ) std::cout << "--";
+        //std::cout << "\\ "  << tag << " : " << durationFloat << "s " << 1.0 / durationFloat << "Hz" << std::endl;
+        start = end;
+    }
+    std::string tag;
+    int myd;
+    std::chrono::time_point<std::chrono::high_resolution_clock> start;
+};
+
+int TimeThisBlock::depth = 0;
 
 //==============================================================================
 SpringComponent::SpringComponent() : forwardFFT(fftOrder)
 {
+    srand(1234); // be predictable
     setSize(1280, 720);
 
     setAudioChannels(0, 2);
@@ -21,8 +50,8 @@ SpringComponent::SpringComponent() : forwardFFT(fftOrder)
         transportSource.setPosition(0.0);
         priorTime = transportSource.getCurrentPosition();
     }
-    startTimerHz(30);
 
+    startTimerHz(45);
     auto epf = juce::File(dir + "EP.mid");
     auto fis = std::make_unique<juce::FileInputStream>(epf);
     epFile.readFrom(*fis);
@@ -48,7 +77,11 @@ SpringComponent::SpringComponent() : forwardFFT(fftOrder)
             ly[i][j] = 0;
             ly2[i][j] = 0;
         }
-    srand(1234); // be predictable
+
+    uint8_t z = 0;
+    typeFace = juce::Typeface::createSystemTypefaceFor(BinaryData::GlacialIndifferenceRegular_ttf,
+                                                       BinaryData::GlacialIndifferenceRegular_ttfSize);
+
 }
 
 SpringComponent::~SpringComponent() { shutdownAudio(); }
@@ -60,6 +93,7 @@ void SpringComponent::paint(juce::Graphics &g)
 //==============================================================================
 void SpringComponent::paintForReal(juce::Graphics &g)
 {
+    TimeThisBlock wholeThing( "paintForReal" );
     auto cp = priorTime;
 
     g.setColour(juce::Colour(20, 30, 20));
@@ -84,6 +118,11 @@ void SpringComponent::paintForReal(juce::Graphics &g)
         pos += step;
     }
 
+    g.saveState();
+    g.setGradientFill(backgroundShade);
+    g.fillRect(0,cy,getWidth(),cy);
+    g.restoreState();
+
     if (cp < 10)
     {
         g.setFont(juce::Font(50.0f));
@@ -92,23 +131,42 @@ void SpringComponent::paintForReal(juce::Graphics &g)
             c = 255 - (cp - 5) * 255.0 / 5.0;
         if (c < 0)
             c = 0;
-        g.setColour(juce::Colour((uint8_t)255, (uint8_t)255, (uint8_t)255, (uint8_t)c));
-        g.drawText("Title Card", getLocalBounds(), juce::Justification::centred, true);
-        g.setFont(juce::Font(16.0f));
-        if (transportSource.isPlaying())
-            g.drawText(std::to_string(cp), getLocalBounds(), juce::Justification::bottomLeft, true);
-        else
-            g.drawText("Any key to start", getLocalBounds(), juce::Justification::bottomLeft, true);
 
-        priorTime = cp;
-        if (cp < 3)
-            return;
+        g.setColour(juce::Colour((uint8_t)255, (uint8_t)255, (uint8_t)255, (uint8_t)c));
+
+        auto r = juce::Rectangle<int>(0, getHeight() * 0.4, getWidth(), 60 );
+        g.setFont(Font(typeFace).withPointHeight(40));
+        g.drawText("Eleven Thirty Six PM, As The Wind Blows", r, juce::Justification::centred, true);
+
+        r = juce::Rectangle<int>(0, getHeight() * 0.5, getWidth(), 60 );
+        g.setFont(Font(typeFace).withPointHeight(28));
+        g.drawText("From the 'Time and Surroundings' collection", r, juce::Justification::centred, true);
+        r = juce::Rectangle<int>(0, getHeight() * 0.6, getWidth(), 60 );
+        g.setFont(Font(typeFace).withPointHeight(28));
+        g.drawText("Paul Walker", r, juce::Justification::centred, true);
+        r = juce::Rectangle<int>(0, getHeight() * 0.55, getWidth(), 60 );
+        g.setFont(Font(typeFace).withPointHeight(28));
+        g.drawText("Winter/Spring 2021", r, juce::Justification::centred, true);
+
+        r = juce::Rectangle<int>(0, getHeight() * 0.92, getWidth(), 60 );
+        g.setFont(Font(typeFace).withPointHeight(16));
+        g.drawText("https://soundcloud.com/baconpaul/" , r, juce::Justification::centred, true);
+
+        r = juce::Rectangle<int>(0, getHeight() * 0.88, getWidth(), 60 );
+        g.setFont(Font(typeFace).withPointHeight(16));
+        g.drawText("Creative Commons Attribution 4.0 International (CC BY 4.0)" , r, juce::Justification::centred, true);
+
     }
 
-    g.setFont(juce::Font(16.0f));
-    g.setColour(juce::Colours::white);
+    g.setFont(juce::Font(typeFace).withPointHeight(12));
+    g.setColour(juce::Colours::aliceblue);
     auto p = std::to_string(cp) + " / " + std::to_string(dots.size());
     g.drawText(p, getLocalBounds(), juce::Justification::bottomLeft, true);
+
+    if (cp < 3) {
+        priorTime = cp;
+        return;
+    }
 
     float sz = 4, sz2 = 2;
     uint8_t alpha = ( cp > 5 ? 255 : cp < 3 ? 0 : (int)( ( cp - 3 ) * 0.5 * 255 ));
@@ -162,6 +220,10 @@ void SpringComponent::resized()
     // update their positions.
     offscreen = juce::Image(juce::Image::ARGB, getWidth(), getHeight(), false);
     toFront(true);
+
+    uint8_t z = 0, t = 255;
+    backgroundShade = ColourGradient::vertical(juce::Colour(z,z,z,z), getHeight()/2, juce::Colour(z,z,(uint8_t)(z+20),(uint8_t)(z+255)), getHeight());
+    backgroundShade.addColour(0.6, juce::Colour(z,z,z,(uint8_t)(z+40)));
 }
 
 void SpringComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
@@ -191,8 +253,8 @@ void SpringComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo &b)
     }
 }
 
-void SpringComponent::timerCallback()
-{
+void SpringComponent::timerCallback() {
+    TimeThisBlock time("timerCallback");
     if (nextFFTBlockReady)
     {
         forwardFFT.performFrequencyOnlyForwardTransform(fftData);
@@ -253,8 +315,9 @@ void SpringComponent::timerCallback()
         {
             const double dtodx2 = 0.1;
 
-            meshNext[i][j] = 2 * mesh[i][j] - meshPrior[i][j] + dtodx2 * (mesh[i+1][j] + mesh[i-1][j] + mesh[i][j-1] + mesh[i][j+1] - 4.0 * mesh[i][j]);
-
+            meshNext[i][j] = 2 * mesh[i][j] - meshPrior[i][j] +
+                             dtodx2 * (mesh[i + 1][j] + mesh[i - 1][j] + mesh[i][j - 1] +
+                                       mesh[i][j + 1] - 4.0 * mesh[i][j]);
         }
     }
     static constexpr float diffuse = 0.05;
@@ -262,14 +325,14 @@ void SpringComponent::timerCallback()
     {
         for (int j = 1; j < meshSize - 1; ++j)
         {
-            auto meshAvg =
-                0.5 * mesh[i][j] + 0.5 *
-                                       (mesh[i + 1][j] + mesh[i - 1][j] + mesh[i][j - 1] +
-                                        mesh[i][j + 1] + mesh[i - 1][j - 1] + mesh[i - 1][j + 1] +
-                                        mesh[i + 1][j - 1] + mesh[i + 1][j + 1]) /
-                                       8.0;
+            auto meshAvg = 0.5 * mesh[i][j] +
+                           0.5 *
+                               (mesh[i + 1][j] + mesh[i - 1][j] + mesh[i][j - 1] +
+                                mesh[i][j + 1] + mesh[i - 1][j - 1] + mesh[i - 1][j + 1] +
+                                mesh[i + 1][j - 1] + mesh[i + 1][j + 1]) /
+                               8.0;
             meshPrior[i][j] = mesh[i][j];
-            mesh[i][j] = (1-diffuse) * meshNext[i][j] + diffuse * meshAvg;
+            mesh[i][j] = (1 - diffuse) * meshNext[i][j] + diffuse * meshAvg;
 
             float sz = 3 + 3 * mesh[i][j];
             float sz2 = sz / 2;
@@ -310,13 +373,29 @@ void SpringComponent::timerCallback()
                 }
             }
         }
+        if (m->message.isNoteOff())
+        {
+            int margin = 2;
+            auto mx = rand() % (meshSize - margin * 4) + margin;
+            auto my = rand() % (meshSize - margin * 4) + margin;
+
+            float di = rand() / RAND_MAX * 0.2 - 0.1;
+            float dj = rand() / RAND_MAX * 0.2 - 0.1;
+            for (int i = -margin + 1; i < margin; ++i)
+            {
+                for (int j = -margin + 1; j < margin; ++j)
+                {
+                    mesh[mx + i][my + j] = -0.3;
+                    meshPrior[mx + i][my + j] += -0.3 + di * i + dj * j;
+                }
+            }
+        }
         it++;
     }
 
     priorTime = cp;
     juce::Graphics g(offscreen);
     paintForReal(g);
-
     repaint();
 }
 bool SpringComponent::keyPressed(const KeyPress &key, Component *originatingComponent)

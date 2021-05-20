@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include <vector>
+#include <thread>
 
 //==============================================================================
 /*
@@ -18,7 +19,7 @@ class SpringComponent : public juce::AudioAppComponent, public juce::Timer, publ
     //==============================================================================
     void paint(juce::Graphics &) override;
     void paintForReal(juce::Graphics &);
-    juce::Image offscreen;
+    juce::Image offscreen, offscreenForCalc;
 
     void resized() override;
 
@@ -35,6 +36,8 @@ class SpringComponent : public juce::AudioAppComponent, public juce::Timer, publ
     void mouseUp(const MouseEvent &event) override;
 
   public:
+    juce::ColourGradient backgroundShade;
+
     juce::MidiFile padFile, epFile;
     struct dot
     {
@@ -79,6 +82,8 @@ class SpringComponent : public juce::AudioAppComponent, public juce::Timer, publ
     bool nextFFTBlockReady = false;
 
     float fftOut[fftSize];
+
+    juce::Typeface::Ptr typeFace;
 
   private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpringComponent)

@@ -8,6 +8,9 @@ juce_add_gui_app(spring-viz
 
 juce_generate_juce_header(spring-viz)
 
+juce_add_binary_data( spring-viz-binary
+        SOURCES resources/GlacialIndifference-Regular.ttf)
+
 target_sources(spring-viz
     PRIVATE
         src/Spring.cpp
@@ -35,6 +38,7 @@ target_link_libraries(spring-viz
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
+        spring-viz-binary
         )
 
 target_compile_options(spring-viz PUBLIC -Wno-implicit-float-conversion)
