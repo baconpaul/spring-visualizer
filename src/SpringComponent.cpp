@@ -140,7 +140,7 @@ void SpringComponent::paintForReal(juce::Graphics &g)
 
         r = juce::Rectangle<int>(0, getHeight() * 0.5, getWidth(), 60 );
         g.setFont(Font(typeFace).withPointHeight(28));
-        g.drawText("From the 'Time and Surroundings' collection", r, juce::Justification::centred, true);
+        g.drawText("From 'Times and Surroundings'", r, juce::Justification::centred, true);
         r = juce::Rectangle<int>(0, getHeight() * 0.6, getWidth(), 60 );
         g.setFont(Font(typeFace).withPointHeight(28));
         g.drawText("Paul Walker", r, juce::Justification::centred, true);
@@ -308,7 +308,7 @@ void SpringComponent::timerCallback() {
     auto cx = getWidth() / 2;
     auto cy = getHeight() / 2;
     float ms2 = meshSize / 2.0;
-    std::array<std::array<float, meshSize>, meshSize> meshNext;
+    std::array<std::array<float, meshSize>, meshSize> meshNext, meshAvg;
     for (int i = 1; i < meshSize - 1; ++i)
     {
         for (int j = 1; j < meshSize - 1; ++j)
@@ -318,6 +318,12 @@ void SpringComponent::timerCallback() {
             meshNext[i][j] = 2 * mesh[i][j] - meshPrior[i][j] +
                              dtodx2 * (mesh[i + 1][j] + mesh[i - 1][j] + mesh[i][j - 1] +
                                        mesh[i][j + 1] - 4.0 * mesh[i][j]);
+            meshAvg[i][j] = 0.5 * mesh[i][j] +
+                           0.5 *
+                           (mesh[i + 1][j] + mesh[i - 1][j] + mesh[i][j - 1] +
+                            mesh[i][j + 1] + mesh[i - 1][j - 1] + mesh[i - 1][j + 1] +
+                            mesh[i + 1][j - 1] + mesh[i + 1][j + 1]) /
+                           8.0;
         }
     }
     static constexpr float diffuse = 0.05;
@@ -325,14 +331,9 @@ void SpringComponent::timerCallback() {
     {
         for (int j = 1; j < meshSize - 1; ++j)
         {
-            auto meshAvg = 0.5 * mesh[i][j] +
-                           0.5 *
-                               (mesh[i + 1][j] + mesh[i - 1][j] + mesh[i][j - 1] +
-                                mesh[i][j + 1] + mesh[i - 1][j - 1] + mesh[i - 1][j + 1] +
-                                mesh[i + 1][j - 1] + mesh[i + 1][j + 1]) /
-                               8.0;
+
             meshPrior[i][j] = mesh[i][j];
-            mesh[i][j] = (1 - diffuse) * meshNext[i][j] + diffuse * meshAvg;
+            mesh[i][j] = (1 - diffuse) * meshNext[i][j] + diffuse * meshAvg[i][j];
 
             float sz = 3 + 3 * mesh[i][j];
             float sz2 = sz / 2;
@@ -340,11 +341,12 @@ void SpringComponent::timerCallback() {
             float py = 1.f * (meshSize - j) / meshSize;
 
             const float sf = 1.2;
+            float cyd = 1.0 - ( cp < 10 ? (10-cp) * 0.08 : 0);
             float xScale = (sf + py) / (sf + 1.0);
             float llx = xScale * px * cx + cx;
-            float lly = py * cy + cy;
+            float lly = py * cy * cyd + cy * (2 - cyd);
             py -= 0.5 * mesh[i][j];
-            float lly2 = py * cy + cy;
+            float lly2 = py * cy * cyd + cy * (2 - cyd);
             lx[i][j] = llx;
             ly[i][j] = lly;
             ly2[i][j] = lly2;
