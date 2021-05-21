@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include <vector>
 #include <thread>
+#include <random>
 
 //==============================================================================
 /*
@@ -19,7 +20,7 @@ class SpringComponent : public juce::AudioAppComponent, public juce::Timer, publ
     //==============================================================================
     void paint(juce::Graphics &) override;
     void paintForReal(juce::Graphics &);
-    juce::Image offscreen, offscreenForCalc;
+    // juce::Image offscreen, offscreenForCalc;
 
     void resized() override;
 
@@ -41,8 +42,7 @@ class SpringComponent : public juce::AudioAppComponent, public juce::Timer, publ
     juce::MidiFile padFile, epFile;
     struct dot
     {
-        double x, y, a;
-        bool square;
+        double x, y, a, vx, vy;
     };
     std::vector<dot> dots;
 
@@ -84,6 +84,10 @@ class SpringComponent : public juce::AudioAppComponent, public juce::Timer, publ
     float fftOut[fftSize];
 
     juce::Typeface::Ptr typeFace;
+
+    std::minstd_rand rng{1234};
+    std::uniform_real_distribution<float> z01d{0.f, 1.f}, zmp1d{-1.f, 1.f};
+    std::uniform_int_distribution<int> uid{0, RAND_MAX};
 
   private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpringComponent)

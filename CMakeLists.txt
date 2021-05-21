@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
+set(CMAKE_CXX_STANDARD 17)
 project(SpringViz VERSION 0.0.1)
 
 add_subdirectory(libs/JUCE)                    # If you've put JUCE in a subdirectory called JUCE
@@ -22,6 +23,7 @@ target_compile_definitions(spring-viz
         JUCE_WEB_BROWSER=0  # If you remove this, add `NEEDS_WEB_BROWSER TRUE` to the `juce_add_gui_app` call
         JUCE_USE_CURL=0     # If you remove this, add `NEEDS_CURL TRUE` to the `juce_add_gui_app` call
         JUCE_DISPLAY_SPLASH_SCREEN=0
+        JUCE_COREGRAPHICS_DRAW_ASYNC=1
         JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:spring-viz,JUCE_PRODUCT_NAME>"
         JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:spring-viz,JUCE_VERSION>")
 
