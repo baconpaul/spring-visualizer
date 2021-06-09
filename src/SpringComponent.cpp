@@ -58,7 +58,7 @@ SpringComponent::SpringComponent() : forwardFFT(fftOrder)
         auto newSource = std::make_unique<juce::AudioFormatReaderSource>(reader, true);
         transportSource.setSource(newSource.get(), 0, nullptr, reader->sampleRate);
         readerSource = std::move(newSource);
-        float startPos = 31; // 31 is another good one as is 8
+        float startPos = 0; // 31 is another good one as is 8
         transportSource.setPosition(startPos);
         priorTime = transportSource.getCurrentPosition();
     }
@@ -212,7 +212,7 @@ void SpringComponent::paintForReal(juce::Graphics &g)
 
             {
                 juce::Graphics::ScopedSaveState gs(g);
-                auto age0z = std::clamp((100-d.age)*0.01, -1.0, 1.0);
+                auto age0z = 0.2 * std::clamp((100-d.age)*0.01, -1.0, 1.0);
                 auto a = juce::AffineTransform().rotated(d.vrot * d.age / 20 / M_PI ).sheared(age0z*d.vel*d.sgn, -0.3*age0z *d.vel * d.sgn).translated(px - r/2.0,py - r/2.0);
                 g.addTransform(a);
                 g.setColour(juce::Colour(c, c, 0, (uint8_t)( c / 2)));
