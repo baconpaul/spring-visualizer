@@ -58,7 +58,7 @@ SpringComponent::SpringComponent() : forwardFFT(fftOrder)
         auto newSource = std::make_unique<juce::AudioFormatReaderSource>(reader, true);
         transportSource.setSource(newSource.get(), 0, nullptr, reader->sampleRate);
         readerSource = std::move(newSource);
-        float startPos = 0; // 31 is another good one as is 8
+        float startPos = 31; // 31 is another good one as is 8
         transportSource.setPosition(startPos);
         priorTime = transportSource.getCurrentPosition();
     }
@@ -210,11 +210,25 @@ void SpringComponent::paintForReal(juce::Graphics &g)
             px += (1.0 - d.a) * (px - cx);
             py += (1.0 - d.a) * (py - cy);
 
-            g.setColour(juce::Colour(c, c, 0, c));
-            // g.drawLine(px, py, pd.x, pd.y);
-            g.fillEllipse(px - 0.5 * r, py - 0.5 * r, r, r);
+            {
+                juce::Graphics::ScopedSaveState gs(g);
+                auto age0z = std::clamp((100-d.age)*0.01, -1.0, 1.0);
+                auto a = juce::AffineTransform().rotated(d.vrot * d.age / 20 / M_PI ).sheared(age0z*d.vel*d.sgn, -0.3*age0z *d.vel * d.sgn).translated(px - r/2.0,py - r/2.0);
+                g.addTransform(a);
+                g.setColour(juce::Colour(c, c, 0, (uint8_t)( c / 2)));
+                //g.fillEllipse(px - 0.5 * r, py - 0.5 * r, r, r);
+                g.fillRect(juce::Rectangle<float>(0,0,r,r));
+                for( float x=3; x < r; x += 3.f )
+                {
+                    g.fillRect(juce::Rectangle<float>(0, x, r, 1 ));
+                }
+                g.setColour(juce::Colour(c, c, c, c));
+                g.drawRect(juce::Rectangle<float>(0,0,r,r));
+
+            }
 
             d.a *= 0.99;
+            d.age ++;
             // pd = d;
         }
     }
@@ -298,6 +312,7 @@ void SpringComponent::timerCallback()
             auto m = tk->getEventPointer(it);
             if (m->message.isNoteOn())
             {
+                int vrotsign = (z01d(rng) > 0.5) ? 1 : -1;
                 const double xComp = 0.7;
                 auto nn = std::clamp(1.0 * (m->message.getNoteNumber() - 60) / 30.0, 0.0, 1.0);
                 nn += zmp1d(rng) * 1.0 / 127.0;
@@ -305,14 +320,20 @@ void SpringComponent::timerCallback()
                 dot d{};
                 d.x = (1 - nn) * getWidth() * xComp;
                 d.y = (0.3 * z01d(rng) + 0.7 * m->message.getVelocity() / 127.0) * 2 * wy - wy + cy;
+                d.vel = m->message.getVelocity() / 127.0;
                 float q = d.y;
                 d.a = 1;
+                d.sgn = vrotsign;
+                d.vrot = vrotsign * z01d(rng) * 0.2 + 0.4;
                 dots.push_back(d);
 
                 d = dot{};
                 d.x = nn * getWidth() * xComp + (1.0 - xComp) * getWidth();
                 d.y = q;
                 d.a = 1;
+                d.sgn = -vrotsign;
+                d.vrot = vrotsign * ( z01d(rng) * 0.4 + 0.2 );
+                d.vel = m->message.getVelocity() / 127.0;
                 dots.push_back(d);
             }
             it++;

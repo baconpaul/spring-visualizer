@@ -42,7 +42,8 @@ class SpringComponent : public juce::AudioAppComponent, public juce::Timer, publ
     juce::MidiFile padFile, epFile;
     struct dot
     {
-        double x, y, a, vx, vy;
+        double x, y, a, vx, vy, vrot, vel;
+        int age{0}, sgn;
     };
     std::vector<dot> dots;
 
